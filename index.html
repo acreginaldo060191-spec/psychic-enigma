@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lord Nine Boss Tracker & Kill Timer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0B0F17',
+                            800: '#111827',
+                            700: '#1F2937',
+                            600: '#374151'
+                        },
+                        neon: {
+                            cyan: '#00f3ff',
+                            amber: '#ffb700',
+                            red: '#ff2a5f',
+                            green: '#00ff88',
+                            purple: '#ab47bc'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0F17;
+            color: #E5E7EB;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom Glowing Card Borders */
+        .glow-alive {
+            border: 1px solid rgba(0, 255, 136, 0.4);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+        }
+        .glow-soon {
+            border: 1px solid rgba(255, 183, 0, 0.5);
+            box-shadow: 0 0 15px rgba(255, 183, 0, 0.2);
+            animation: pulse-border 2s infinite;
+        }
+        .glow-dead {
+            border: 1px solid rgba(55, 65, 81, 0.5);
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 10px rgba(255, 183, 0, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(255, 183, 0, 0.5); }
+            100% { box-shadow: 0 0 10px rgba(255, 183, 0, 0.2); }
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B0F17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1F2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-neon-cyan selection:text-black">
+
+    <div>
+        <!-- Top Navigation / Header -->
+        <header class="bg-dark-800 border-b border-gray-800 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title Branding -->
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-cyan-500/20">
+                            <i class="fa-solid font-bold fa-dragon"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold tracking-wider text-white uppercase flex items-center gap-2">
+                                LORD NINE <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-neon-cyan border border-cyan-500/30">BOSS TRACKER</span>
+                            </h1>
+                            <p class="text-xs text-gray-400">Real-time respawn & schedule timer manager</p>
+                        </div>
+                    </div>
+
+                    <!-- Clock & Global Actions -->
+                    <div class="flex flex-wrap items-center gap-3 justify-between md:justify-end">
+                        <!-- Local Time Display -->
+                        <div class="bg-dark-900 px-3 py-1.5 rounded-lg border border-gray-800 flex items-center gap-2">
+                            <i class="fa-regular fa-clock text-neon-cyan text-sm"></i>
+                            <div>
+                                <span class="text-[10px] text-gray-400 uppercase block leading-none">Local Time</span>
+                                <span id="current-local-time" class="font-mono text-sm font-semibold text-gray-200">00:00:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Audio Toggle -->
+                        <button id="toggle-audio-btn" title="Toggle Audio Notifications" class="p-2 rounded-lg bg-dark-900 border border-gray-800 text-gray-300 hover:text-white hover:border-gray-700 transition">
+                            <i id="audio-icon" class="fa-solid fa-volume-xmark text-red-400"></i>
+                        </button>
+
+                        <!-- Browser Notification Toggle -->
+                        <button id="toggle-notif-btn" title="Enable Browser Notifications" class="p-2 rounded-lg bg-dark-900 border border-gray-800 text-gray-300 hover:text-white hover:border-gray-700 transition">
+                            <i id="notif-icon" class="fa-solid fa-bell-slash text-gray-500"></i>
+                        </button>
+
+                        <!-- Import/Export & Reset -->
+                        <div class="flex items-center gap-1.5 bg-dark-900 p-1 rounded-lg border border-gray-800">
+                            <button id="export-btn" title="Export Backup JSON" class="px-2.5 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition">
+                                <i class="fa-solid fa-download mr-1"></i> Export
+                            </button>
+                            <label title="Import Backup JSON" class="px-2.5 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition cursor-pointer">
+                                <i class="fa-solid fa-upload mr-1"></i> Import
+                                <input type="file" id="import-file-input" accept=".json" class="hidden">
+                            </label>
+                            <button id="reset-all-btn" title="Reset All Killed Data" class="px-2.5 py-1 text-xs rounded bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-800/50 transition">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Summary Stats Widget -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="bg-dark-800 p-3.5 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-medium">Total Bosses</p>
+                        <p id="stat-total" class="text-xl font-bold font-mono text-white mt-0.5">0</p>
+                    </div>
+                    <div class="w-9 h-9 rounded-lg bg-gray-700/40 text-gray-300 flex items-center justify-center">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-dark-800 p-3.5 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-green-400/90 uppercase font-medium">Alive Now</p>
+                        <p id="stat-alive" class="text-xl font-bold font-mono text-neon-green mt-0.5">0</p>
+                    </div>
+                    <div class="w-9 h-9 rounded-lg bg-green-500/10 text-neon-green flex items-center justify-center border border-green-500/20">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                </div>
+
+                <div class="bg-dark-800 p-3.5 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-amber-400/90 uppercase font-medium">Spawning Soon (&lt;30m)</p>
+                        <p id="stat-soon" class="text-xl font-bold font-mono text-neon-amber mt-0.5">0</p>
+                    </div>
+                    <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-neon-amber flex items-center justify-center border border-amber-500/20">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+
+                <div class="bg-dark-800 p-3.5 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-medium">Dead / Countdown</p>
+                        <p id="stat-dead" class="text-xl font-bold font-mono text-gray-400 mt-0.5">0</p>
+                    </div>
+                    <div class="w-9 h-9 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
+                        <i class="fa-solid fa-skull"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Section (Search, Tabs, Sorting) -->
+            <div class="bg-dark-800 p-4 rounded-xl border border-gray-800 mb-6 space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <!-- Search Input -->
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" id="search-input" placeholder="Search boss name..." class="w-full pl-10 pr-4 py-2 bg-dark-900 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition">
+                    </div>
+
+                    <!-- Category Tabs -->
+                    <div class="flex flex-wrap items-center gap-1.5 bg-dark-900 p-1 rounded-lg border border-gray-800">
+                        <button class="filter-tab active-tab px-3 py-1.5 rounded-md text-xs font-medium transition" data-category="all">All Bosses</button>
+                        <button class="filter-tab px-3 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-white transition" data-category="respawn">Respawn Timers</button>
+                        <button class="filter-tab px-3 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-white transition" data-category="fixed">Fixed Schedule</button>
+                        <button class="filter-tab px-3 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-white transition" data-category="active">Alive / Soon</button>
+                    </div>
+
+                    <!-- Sorting Dropdown -->
+                    <div class="flex items-center gap-2 min-w-[200px]">
+                        <span class="text-xs text-gray-400 whitespace-nowrap"><i class="fa-solid fa-arrow-down-wide-short mr-1"></i>Sort:</span>
+                        <select id="sort-select" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+                            <option value="spawn_asc">Spawn Time (Soonest First)</option>
+                            <option value="name_asc">Name (A-Z)</option>
+                            <option value="interval_desc">Interval/Cooldown (Longest)</option>
+                            <option value="interval_asc">Interval/Cooldown (Shortest)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="boss-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <!-- Boss Cards dynamically inserted here -->
+            </div>
+
+            <!-- Empty State Message -->
+            <div id="empty-state" class="hidden text-center py-16 bg-dark-800 rounded-xl border border-gray-800">
+                <i class="fa-solid fa-ghost text-4xl text-gray-600 mb-3 block"></i>
+                <h3 class="text-lg font-semibold text-gray-300">No Bosses Found</h3>
+                <p class="text-xs text-gray-500 mt-1">Try adjusting your search criteria or active filters.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark-800 border-t border-gray-800 py-4 mt-8 text-center text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>Lord Nine MMORPG Boss Tracker &bull; Data saved locally in browser</p>
+        </div>
+    </footer>
+
+    <!-- Custom Modal for Manual Kill Time Input -->
+    <div id="custom-time-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-dark-800 border border-gray-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modal-boss-title" class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-neon-cyan"></i> Set Kill Time
+                </h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+            <p class="text-xs text-gray-400 mb-4">Pick the exact date and time when this boss was killed.</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Kill Time (Local)</label>
+                    <input type="datetime-local" id="modal-datetime-input" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Custom Boss Note (Optional)</label>
+                    <input type="text" id="modal-note-input" placeholder="e.g., Channel 2 / Guild tag" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-cyan-500">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 mt-6">
+                <button id="modal-cancel-btn" class="px-4 py-2 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition">Cancel</button>
+                <button id="modal-save-btn" class="px-4 py-2 rounded-lg text-xs font-medium bg-cyan-600 text-white hover:bg-cyan-500 transition shadow-lg shadow-cyan-600/30">Save Kill Time</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BOSS_DATA = [
+            // Respawn Interval Bosses
+            { id: 'venatus', name: 'Venatus', type: 'respawn', interval: 10 },
+            { id: 'viorent', name: 'Viorent', type: 'respawn', interval: 10 },
+            { id: 'ego', name: 'Ego', type: 'respawn', interval: 21 },
+            { id: 'lady_dalie', name: 'Lady Dalie', type: 'respawn', interval: 18 },
+            { id: 'livera', name: 'Livera', type: 'respawn', interval: 24 },
+            { id: 'araneo', name: 'Araneo', type: 'respawn', interval: 24 },
+            { id: 'undomiel', name: 'Undomiel', type: 'respawn', interval: 24 },
+            { id: 'general_aquleus', name: 'General Aquleus', type: 'respawn', interval: 29 },
+            { id: 'amentis', name: 'Amentis', type: 'respawn', interval: 29 },
+            { id: 'baron_braudmore', name: 'Baron Braudmore', type: 'respawn', interval: 32 },
+            { id: 'gareth', name: 'Gareth', type: 'respawn', interval: 32 },
+            { id: 'shuliar', name: 'Shuliar', type: 'respawn', interval: 35 },
+            { id: 'larba', name: 'Larba', type: 'respawn', interval: 35 },
+            { id: 'catena', name: 'Catena', type: 'respawn', interval: 35 },
+            { id: 'titore', name: 'Titore', type: 'respawn', interval: 37 },
+            { id: 'wannitas', name: 'Wannitas', type: 'respawn', interval: 48 },
+            { id: 'metus', name: 'Metus', type: 'respawn', interval: 48 },
+            { id: 'duplican', name: 'Duplican', type: 'respawn', interval: 48 },
+            { id: 'secreta', name: 'Secreta', type: 'respawn', interval: 62 },
+            { id: 'ordo', name: 'Ordo', type: 'respawn', interval: 62 },
+            { id: 'asta', name: 'Asta', type: 'respawn', interval: 62 },
+            { id: 'supore', name: 'Supore', type: 'respawn', interval: 62 },
+
+            // Fixed Schedule Bosses (0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat)
+            { id: 'clemantis', name: 'Clemantis', type: 'fixed', schedule: [{ day: 1, time: '11:30' }, { day: 4, time: '19:00' }] },
+            { id: 'saphirus', name: 'Saphirus', type: 'fixed', schedule: [{ day: 0, time: '17:00' }, { day: 2, time: '11:30' }] },
+            { id: 'neutro', name: 'Neutro', type: 'fixed', schedule: [{ day: 2, time: '19:00' }, { day: 4, time: '11:30' }] },
+            { id: 'thymele', name: 'Thymele', type: 'fixed', schedule: [{ day: 1, time: '19:00' }, { day: 3, time: '11:30' }] },
+            { id: 'milavy', name: 'Milavy', type: 'fixed', schedule: [{ day: 6, time: '15:00' }] },
+            { id: 'ringor', name: 'Ringor', type: 'fixed', schedule: [{ day: 6, time: '17:00' }] },
+            { id: 'roderick', name: 'Roderick', type: 'fixed', schedule: [
+                { day: 0, time: '19:00' }, { day: 1, time: '19:00' }, { day: 2, time: '19:00' },
+                { day: 3, time: '19:00' }, { day: 4, time: '19:00' }, { day: 5, time: '19:00' }, { day: 6, time: '19:00' }
+            ] },
+            { id: 'auraq', name: 'Auraq', type: 'fixed', schedule: [{ day: 5, time: '22:00' }, { day: 3, time: '21:00' }] },
+            { id: 'chaiflock', name: 'Chaiflock', type: 'fixed', schedule: [{ day: 0, time: '15:00' }] },
+            { id: 'benji', name: 'Benji', type: 'fixed', schedule: [{ day: 0, time: '21:00' }] },
+            { id: 'libitina', name: 'Libitina', type: 'fixed', schedule: [{ day: 1, time: '21:00' }, { day: 6, time: '21:00' }] },
+            { id: 'rakajeth', name: 'Rakajeth', type: 'fixed', schedule: [{ day: 2, time: '22:00' }, { day: 0, time: '19:00' }] },
+            { id: 'icaruthia', name: 'Icaruthia', type: 'fixed', schedule: [{ day: 2, time: '21:00' }, { day: 5, time: '21:00' }] },
+            { id: 'motti', name: 'Motti', type: 'fixed', schedule: [{ day: 3, time: '19:00' }, { day: 6, time: '19:00' }] },
+            { id: 'camalia', name: 'Camalia', type: 'fixed', schedule: [{ day: 4, time: '21:00' }] },
+            { id: 'navaeh', name: 'Navaeh', type: 'fixed', schedule: [{ day: 0, time: '22:00' }] },
+            { id: 'tumier', name: 'Tumier', type: 'fixed', schedule: [{ day: 0, time: '19:00' }] },
+            { id: 'lucus', name: 'Lucus', type: 'fixed', schedule: [{ day: 6, time: '22:00' }] }
+        ];
+
+        const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        let state = {
+            killedData: {}, // { bossId: { lastKilledTimestamp: number, note: string } }
+            audioEnabled: false,
+            notifEnabled: false,
+            searchQuery: '',
+            activeCategory: 'all',
+            sortBy: 'spawn_asc',
+            notifiedBosses: new Set(),
+            modalBossId: null
+        };
+
+        // Synthesize Beep Sound using Web Audio API
+        function playBeep() {
+            if (!state.audioEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch (e) {
+                console.error("Audio playback error:", e);
+            }
+        }
+
+        function loadStateFromStorage() {
+            const savedData = localStorage.getItem('lordnine_kill_tracker_data');
+            if (savedData) {
+                try {
+                    state.killedData = JSON.parse(savedData);
+                } catch(e) {
+                    state.killedData = {};
+                }
+            }
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('lordnine_kill_tracker_data', JSON.stringify(state.killedData));
+        }
+
+        function formatTwoDigits(num) {
+            return num < 10 ? '0' + num : num;
+        }
+
+        function formatDateTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayStr = days[date.getDay()];
+            const hrs = formatTwoDigits(date.getHours());
+            const mins = formatTwoDigits(date.getMinutes());
+            const secs = formatTwoDigits(date.getSeconds());
+            return `${dayStr} ${hrs}:${mins}:${secs}`;
+        }
+
+        // Calculates next spawn timestamp for a fixed schedule boss
+        function getNextFixedSpawnTime(scheduleList) {
+            const now = new Date();
+            let minDiff = Infinity;
+            let nextSpawnDate = null;
+
+            scheduleList.forEach(item => {
+                const [targetHour, targetMin] = item.time.split(':').map(Number);
+                let daysAhead = (item.day - now.getDay() + 7) % 7;
+                
+                let candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead, targetHour, targetMin, 0, 0);
+
+                // If candidate is earlier than current time today, add 7 days
+                if (candidate.getTime() <= now.getTime()) {
+                    candidate.setDate(candidate.getDate() + 7);
+                }
+
+                const diff = candidate.getTime() - now.getTime();
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    nextSpawnDate = candidate;
+                }
+            });
+
+            return nextSpawnDate ? nextSpawnDate.getTime() : null;
+        }
+
+        // Calculates next spawn time and status for any boss
+        function getBossInfo(boss) {
+            const now = Date.now();
+            let nextSpawnTimestamp = null;
+            let lastKilledTime = null;
+            let note = '';
+
+            if (state.killedData[boss.id]) {
+                lastKilledTime = state.killedData[boss.id].lastKilledTimestamp;
+                note = state.killedData[boss.id].note || '';
+            }
+
+            if (boss.type === 'respawn') {
+                if (lastKilledTime) {
+                    nextSpawnTimestamp = lastKilledTime + (boss.interval * 3600 * 1000);
+                } else {
+                    nextSpawnTimestamp = null; // Alive / Ready
+                }
+            } else {
+                nextSpawnTimestamp = getNextFixedSpawnTime(boss.schedule);
+            }
+
+            let status = 'ALIVE'; // 'ALIVE', 'SPAWNING SOON', 'DEAD'
+            let remainingMs = 0;
+
+            if (nextSpawnTimestamp && nextSpawnTimestamp > now) {
+                remainingMs = nextSpawnTimestamp - now;
+                if (remainingMs <= 30 * 60 * 1000) {
+                    status = 'SPAWNING SOON';
+                } else {
+                    status = 'DEAD';
+                }
+            } else {
+                status = 'ALIVE';
+                remainingMs = 0;
+            }
+
+            return {
+                ...boss,
+                lastKilledTime,
+                nextSpawnTimestamp,
+                remainingMs,
+                status,
+                note
+            };
+        }
+
+        function renderBossCards() {
+            const grid = document.getElementById('boss-grid');
+            const emptyState = document.getElementById('empty-state');
+            
+            let processedBosses = BOSS_DATA.map(getBossInfo);
+
+            // Filter logic
+            if (state.searchQuery.trim() !== '') {
+                const q = state.searchQuery.toLowerCase();
+                processedBosses = processedBosses.filter(b => b.name.toLowerCase().includes(q));
+            }
+
+            if (state.activeCategory === 'respawn') {
+                processedBosses = processedBosses.filter(b => b.type === 'respawn');
+            } else if (state.activeCategory === 'fixed') {
+                processedBosses = processedBosses.filter(b => b.type === 'fixed');
+            } else if (state.activeCategory === 'active') {
+                processedBosses = processedBosses.filter(b => b.status === 'ALIVE' || b.status === 'SPAWNING SOON');
+            }
+
+            // Sorting logic
+            processedBosses.sort((a, b) => {
+                if (state.sortBy === 'name_asc') {
+                    return a.name.localeCompare(b.name);
+                }
+                if (state.sortBy === 'interval_desc') {
+                    const getInt = (boss) => boss.type === 'respawn' ? boss.interval : 0;
+                    return getInt(b) - getInt(a);
+                }
+                if (state.sortBy === 'interval_asc') {
+                    const getInt = (boss) => boss.type === 'respawn' ? boss.interval : 0;
+                    return getInt(a) - getInt(b);
+                }
+                // Default: spawn_asc (Soonest spawn first)
+                // Alive bosses (remainingMs = 0) come first
+                if (a.status === 'ALIVE' && b.status !== 'ALIVE') return -1;
+                if (a.status !== 'ALIVE' && b.status === 'ALIVE') return 1;
+                return (a.nextSpawnTimestamp || 0) - (b.nextSpawnTimestamp || 0);
+            });
+
+            // Update stats
+            const allProcessed = BOSS_DATA.map(getBossInfo);
+            document.getElementById('stat-total').innerText = allProcessed.length;
+            document.getElementById('stat-alive').innerText = allProcessed.filter(b => b.status === 'ALIVE').length;
+            document.getElementById('stat-soon').innerText = allProcessed.filter(b => b.status === 'SPAWNING SOON').length;
+            document.getElementById('stat-dead').innerText = allProcessed.filter(b => b.status === 'DEAD').length;
+
+            if (processedBosses.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // Build HTML
+            grid.innerHTML = processedBosses.map(boss => {
+                let badgeClass = '';
+                let glowClass = '';
+
+                if (boss.status === 'ALIVE') {
+                    badgeClass = 'bg-green-500/20 text-neon-green border border-green-500/40';
+                    glowClass = 'glow-alive';
+                } else if (boss.status === 'SPAWNING SOON') {
+                    badgeClass = 'bg-amber-500/20 text-neon-amber border border-amber-500/40';
+                    glowClass = 'glow-soon';
+                } else {
+                    badgeClass = 'bg-gray-800 text-gray-400 border border-gray-700';
+                    glowClass = 'glow-dead';
+                }
+
+                // Format Countdown Display
+                let countdownStr = 'ALIVE NOW';
+                if (boss.remainingMs > 0) {
+                    const totalSecs = Math.floor(boss.remainingMs / 1000);
+                    const hrs = Math.floor(totalSecs / 3600);
+                    const mins = Math.floor((totalSecs % 3600) / 60);
+                    const secs = totalSecs % 60;
+                    countdownStr = `${formatTwoDigits(hrs)}:${formatTwoDigits(mins)}:${formatTwoDigits(secs)}`;
+                }
+
+                // Subtitle details
+                let subtitle = '';
+                if (boss.type === 'respawn') {
+                    subtitle = `<span class="text-xs text-gray-400 font-mono"><i class="fa-solid fa-arrows-rotate mr-1 text-cyan-400"></i>Interval: ${boss.interval}H</span>`;
+                } else {
+                    const formattedSchedule = boss.schedule.map(s => `${DAY_NAMES[s.day].slice(0,3)} ${s.time}`).join(', ');
+                    subtitle = `<span class="text-xs text-gray-400 truncate" title="${formattedSchedule}"><i class="fa-solid fa-calendar-days mr-1 text-purple-400"></i>${formattedSchedule}</span>`;
+                }
+
+                return `
+                    <div class="bg-dark-800 rounded-xl p-4 flex flex-col justify-between relative transition duration-200 ${glowClass}">
+                        <div>
+                            <!-- Header & Status Badge -->
+                            <div class="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-100 text-base leading-snug">${boss.name}</h3>
+                                    ${subtitle}
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase font-mono ${badgeClass}">
+                                    ${boss.status}
+                                </span>
+                            </div>
+
+                            <!-- Live Timer Display -->
+                            <div class="my-3 py-2 px-3 bg-dark-900 rounded-lg border border-gray-800 text-center">
+                                <span class="text-[10px] text-gray-500 uppercase tracking-widest block mb-0.5">Time Until Spawn</span>
+                                <span class="font-mono text-2xl font-bold tracking-wide ${boss.status === 'ALIVE' ? 'text-neon-green' : boss.status === 'SPAWNING SOON' ? 'text-neon-amber' : 'text-gray-200'}">
+                                    ${countdownStr}
+                                </span>
+                            </div>
+
+                            <!-- Spawn Timestamps Info -->
+                            <div class="space-y-1 text-xs text-gray-400 mb-3">
+                                <div class="flex justify-between border-b border-gray-800 pb-1">
+                                    <span class="text-gray-500">Next Spawn:</span>
+                                    <span class="font-mono text-gray-200">${boss.nextSpawnTimestamp ? formatDateTime(boss.nextSpawnTimestamp) : 'Immediate'}</span>
+                                </div>
+                                ${boss.type === 'respawn' ? `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">Last Killed:</span>
+                                    <span class="font-mono text-gray-400">${boss.lastKilledTime ? formatDateTime(boss.lastKilledTime) : 'None'}</span>
+                                </div>
+                                ` : ''}
+                                ${boss.note ? `
+                                <div class="mt-2 text-xs bg-dark-900/80 px-2 py-1 rounded text-cyan-300 italic border border-cyan-900/30">
+                                    <i class="fa-solid fa-sticky-note mr-1 text-cyan-500"></i> ${boss.note}
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Card Action Buttons -->
+                        ${boss.type === 'respawn' ? `
+                        <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-gray-800/80">
+                            <button onclick="setKilledNow('${boss.id}')" title="Set kill time to now" class="py-1.5 px-2 bg-cyan-600/20 hover:bg-cyan-600/40 text-neon-cyan border border-cyan-500/30 rounded text-xs font-medium transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-crosshair"></i> Killed
+                            </button>
+                            <button onclick="openCustomTimeModal('${boss.id}')" title="Set custom kill time" class="py-1.5 px-2 bg-gray-700/40 hover:bg-gray-700/70 text-gray-300 border border-gray-600/30 rounded text-xs font-medium transition flex items-center justify-center gap-1">
+                                <i class="fa-regular fa-clock"></i> Custom
+                            </button>
+                            <button onclick="clearKilledTime('${boss.id}')" title="Reset timer to Alive" class="py-1.5 px-2 bg-red-950/30 hover:bg-red-900/50 text-red-400 border border-red-800/30 rounded text-xs font-medium transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+                        ` : `
+                        <div class="pt-2 border-t border-gray-800/80 text-center">
+                            <span class="text-[11px] text-gray-500 italic">Fixed schedule auto-calculates next spawn</span>
+                        </div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function setKilledNow(bossId) {
+            state.killedData[bossId] = {
+                lastKilledTimestamp: Date.now(),
+                note: state.killedData[bossId]?.note || ''
+            };
+            state.notifiedBosses.delete(bossId);
+            saveStateToStorage();
+            renderBossCards();
+        }
+
+        function clearKilledTime(bossId) {
+            delete state.killedData[bossId];
+            state.notifiedBosses.delete(bossId);
+            saveStateToStorage();
+            renderBossCards();
+        }
+
+        function openCustomTimeModal(bossId) {
+            state.modalBossId = bossId;
+            const boss = BOSS_DATA.find(b => b.id === bossId);
+            document.getElementById('modal-boss-title').innerHTML = `<i class="fa-solid fa-clock text-neon-cyan"></i> Set Kill Time: ${boss.name}`;
+
+            // Pre-fill datetime input with current time formatted for input
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('modal-datetime-input').value = now.toISOString().slice(0, 16);
+            document.getElementById('modal-note-input').value = state.killedData[bossId]?.note || '';
+
+            document.getElementById('custom-time-modal').classList.remove('hidden');
+        }
+
+        function saveCustomModalTime() {
+            if (!state.modalBossId) return;
+
+            const datetimeVal = document.getElementById('modal-datetime-input').value;
+            const noteVal = document.getElementById('modal-note-input').value;
+
+            if (datetimeVal) {
+                const pickedTimestamp = new Date(datetimeVal).getTime();
+                state.killedData[state.modalBossId] = {
+                    lastKilledTimestamp: pickedTimestamp,
+                    note: noteVal.trim()
+                };
+                state.notifiedBosses.delete(state.modalBossId);
+                saveStateToStorage();
+                renderBossCards();
+            }
+
+            closeCustomTimeModal();
+        }
+
+        function closeCustomTimeModal() {
+            state.modalBossId = null;
+            document.getElementById('custom-time-modal').classList.add('hidden');
+        }
+
+        function checkBossNotifications() {
+            const now = Date.now();
+            BOSS_DATA.forEach(boss => {
+                const info = getBossInfo(boss);
+                if (info.nextSpawnTimestamp) {
+                    const diffMins = (info.nextSpawnTimestamp - now) / (1000 * 60);
+
+                    // Notify when 5 mins or less remaining
+                    if (diffMins > 0 && diffMins <= 5 && !state.notifiedBosses.has(boss.id)) {
+                        state.notifiedBosses.add(boss.id);
+                        playBeep();
+
+                        if (state.notifEnabled && Notification.permission === 'granted') {
+                            new Notification(`Boss Spawning Soon: ${boss.name}`, {
+                                body: `${boss.name} will spawn in ${Math.ceil(diffMins)} minute(s)!`,
+                                icon: 'https://cdn-icons-png.flaticon.com/512/616/616430.png'
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.killedData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `lordnine_boss_kills_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (typeof parsed === 'object') {
+                        state.killedData = parsed;
+                        saveStateToStorage();
+                        renderBossCards();
+                        alert('Boss kill data successfully imported!');
+                    }
+                } catch(err) {
+                    alert('Invalid JSON file format.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function init() {
+            loadStateFromStorage();
+
+            // Render live clock
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('current-local-time').innerText = now.toLocaleTimeString();
+            }, 1000);
+
+            // Re-render boss cards & timers every second
+            setInterval(() => {
+                renderBossCards();
+                checkBossNotifications();
+            }, 1000);
+
+            // Search Filter
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                state.searchQuery = e.target.value;
+                renderBossCards();
+            });
+
+            // Category Tab Clicks
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-tab').forEach(t => {
+                        t.classList.remove('bg-cyan-600', 'text-white');
+                        t.classList.add('text-gray-400');
+                    });
+                    e.target.classList.add('bg-cyan-600', 'text-white');
+                    e.target.classList.remove('text-gray-400');
+
+                    state.activeCategory = e.target.getAttribute('data-category');
+                    renderBossCards();
+                });
+            });
+
+            // Sort Select
+            document.getElementById('sort-select').addEventListener('change', (e) => {
+                state.sortBy = e.target.value;
+                renderBossCards();
+            });
+
+            // Toggle Audio
+            document.getElementById('toggle-audio-btn').addEventListener('click', () => {
+                state.audioEnabled = !state.audioEnabled;
+                const icon = document.getElementById('audio-icon');
+                if (state.audioEnabled) {
+                    icon.className = 'fa-solid fa-volume-high text-neon-green';
+                    playBeep(); // Test beep
+                } else {
+                    icon.className = 'fa-solid fa-volume-xmark text-red-400';
+                }
+            });
+
+            // Toggle Browser Notifications
+            document.getElementById('toggle-notif-btn').addEventListener('click', () => {
+                if (!("Notification" in window)) {
+                    alert("This browser does not support desktop notifications.");
+                    return;
+                }
+
+                if (Notification.permission === "granted") {
+                    state.notifEnabled = !state.notifEnabled;
+                    updateNotifIcon();
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            state.notifEnabled = true;
+                            updateNotifIcon();
+                        }
+                    });
+                }
+            });
+
+            function updateNotifIcon() {
+                const icon = document.getElementById('notif-icon');
+                if (state.notifEnabled) {
+                    icon.className = 'fa-solid fa-bell text-neon-green';
+                } else {
+                    icon.className = 'fa-solid fa-bell-slash text-gray-500';
+                }
+            }
+
+            // Export / Import / Reset buttons
+            document.getElementById('export-btn').addEventListener('click', exportJSON);
+            document.getElementById('import-file-input').addEventListener('change', importJSON);
+            document.getElementById('reset-all-btn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear all recorded kill times?')) {
+                    state.killedData = {};
+                    saveStateToStorage();
+                    renderBossCards();
+                }
+            });
+
+            // Custom Modal Controls
+            document.getElementById('close-modal-btn').addEventListener('click', closeCustomTimeModal);
+            document.getElementById('modal-cancel-btn').addEventListener('click', closeCustomTimeModal);
+            document.getElementById('modal-save-btn').addEventListener('click', saveCustomModalTime);
+
+            // Initial render
+            renderBossCards();
+        }
+
+        // Start initialization when DOM is loaded
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
